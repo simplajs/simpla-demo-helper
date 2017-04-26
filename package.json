@@ -1,6 +1,6 @@
 {
   "name": "simpla-demo-helper",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Sets up a demo environment for Simpla element demos",
   "main": "simpla-demo-helper.html",
   "scripts": {
