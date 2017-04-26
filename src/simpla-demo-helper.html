@@ -41,7 +41,7 @@
 
       <paper-toggle-button
         class="toggle"
-        active="{{editable}}"
+        checked="{{editable}}"
         noink>
       </paper-toggle-button>
     </div>
@@ -62,7 +62,8 @@
 
         editable: {
           type: Boolean,
-          observer: '_updateEditable'
+          observer: '_updateEditable',
+          value: true
         }
 
       },
