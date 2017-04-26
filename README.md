@@ -1,7 +1,36 @@
 # Simpla Demo Helper
 ![Version][bower-badge] [![Build status][travis-badge]][travis-url] [![Bower dependencies][bowerdeps-badge]][bowerdeps-url] ![Size][size-badge] [![Published][webcomponents-badge]][webcomponents-url]
 
-Simpla Demo Helper sets up an environment for Simpla element demos. It imports Simpla, sets up a dummy project, and adds an edit mode toggle control to the page.
+Simpla-demo-helper sets up an environment for Simpla element demos. It imports Simpla, sets up a dummy project, and adds an edit mode toggle control to the page.
+
+<!---
+```
+<custom-element-demo>
+  <template>
+   <script src="../webcomponentsjs/webcomponents-lite.js"></script>
+    <link rel="import" href="simpla-demo-helper.html">
+    <link rel="import" href="../simpla-text/simpla-text.html">
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 1rem;
+      }
+      
+      simpla-text {
+        margin: 1.5rem 0.2rem 0;
+      }
+    </style>
+    <next-code-block></next-code-block>
+  </template>
+</custom-element-demo>
+```
+-->
+```html
+<simpla-demo-helper></simpla-demo-helper>
+
+<!-- Element demo -->
+<simpla-text path="/example"></simpla-text>
+```
 
 ## Installation & usage
 
