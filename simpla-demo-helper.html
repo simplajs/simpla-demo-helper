@@ -1,0 +1,3411 @@
+<link rel="import" href="../polymer/polymer.html"> <link rel="import" href="../paper-toggle-button/paper-toggle-button.html"> <link rel="import" href="../simpla-styles/colors.html"> <dom-module id="simpla-demo-helper"> <template> <style>*,::after,::before,:host{box-sizing:border-box}.wrapper{display:flex;align-items:center;justify-content:space-between;padding:1.25rem;border:1px solid var(--simpla-grey-100);background:var(--simpla-grey-50);border-radius:3px;-moz-osx-font-smoothing:grayscale;-webkit-font-smoothing:antialiased;font-smoothing:antialiased}.label{font-family:sans-serif;font-size:.9em;font-weight:600;color:var(--simpla-grey-700)}.toggle{--primary-color:var(--simpla-primary-color);--paper-toggle-button-unchecked-button-color:white;--paper-toggle-button-unchecked-bar-color:var(--simpla-grey-700)}</style> <div class="wrapper"> <span class="label">Toggle edit mode</span> <paper-toggle-button class="toggle" active="{{editable}}" noink=""> </paper-toggle-button> </div> </template> <script>(function () {
+'use strict';
+
+var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+
+function commonjsRequire () {
+	throw new Error('Dynamic requires are not currently supported by rollup-plugin-commonjs');
+}
+
+function unwrapExports (x) {
+	return x && x.__esModule ? x['default'] : x;
+}
+
+function createCommonjsModule(fn, module) {
+	return module = { exports: {} }, fn(module, module.exports), module.exports;
+}
+
+var es6Promise = createCommonjsModule(function (module, exports) {
+/*!
+ * @overview es6-promise - a tiny implementation of Promises/A+.
+ * @copyright Copyright (c) 2014 Yehuda Katz, Tom Dale, Stefan Penner and contributors (Conversion to ES6 API by Jake Archibald)
+ * @license   Licensed under MIT license
+ *            See https://raw.githubusercontent.com/stefanpenner/es6-promise/master/LICENSE
+ * @version   4.1.0
+ */
+
+(function (global, factory) {
+    'object' === 'object' && 'object' !== 'undefined' ? module.exports = factory() :
+    typeof undefined === 'function' && undefined.amd ? undefined(factory) :
+    (global.ES6Promise = factory());
+}(commonjsGlobal, (function () { 'use strict';
+
+function objectOrFunction(x) {
+  return typeof x === 'function' || typeof x === 'object' && x !== null;
+}
+
+function isFunction(x) {
+  return typeof x === 'function';
+}
+
+var _isArray = undefined;
+if (!Array.isArray) {
+  _isArray = function (x) {
+    return Object.prototype.toString.call(x) === '[object Array]';
+  };
+} else {
+  _isArray = Array.isArray;
+}
+
+var isArray = _isArray;
+
+var len = 0;
+var vertxNext = undefined;
+var customSchedulerFn = undefined;
+
+var asap = function asap(callback, arg) {
+  queue[len] = callback;
+  queue[len + 1] = arg;
+  len += 2;
+  if (len === 2) {
+    // If len is 2, that means that we need to schedule an async flush.
+    // If additional callbacks are queued before the queue is flushed, they
+    // will be processed by this flush that we are scheduling.
+    if (customSchedulerFn) {
+      customSchedulerFn(flush);
+    } else {
+      scheduleFlush();
+    }
+  }
+};
+
+function setScheduler(scheduleFn) {
+  customSchedulerFn = scheduleFn;
+}
+
+function setAsap(asapFn) {
+  asap = asapFn;
+}
+
+var browserWindow = typeof window !== 'undefined' ? window : undefined;
+var browserGlobal = browserWindow || {};
+var BrowserMutationObserver = browserGlobal.MutationObserver || browserGlobal.WebKitMutationObserver;
+var isNode = typeof self === 'undefined' && typeof process !== 'undefined' && ({}).toString.call(process) === '[object process]';
+
+// test for web worker but not in IE10
+var isWorker = typeof Uint8ClampedArray !== 'undefined' && typeof importScripts !== 'undefined' && typeof MessageChannel !== 'undefined';
+
+// node
+function useNextTick() {
+  // node version 0.10.x displays a deprecation warning when nextTick is used recursively
+  // see https://github.com/cujojs/when/issues/410 for details
+  return function () {
+    return process.nextTick(flush);
+  };
+}
+
+// vertx
+function useVertxTimer() {
+  if (typeof vertxNext !== 'undefined') {
+    return function () {
+      vertxNext(flush);
+    };
+  }
+
+  return useSetTimeout();
+}
+
+function useMutationObserver() {
+  var iterations = 0;
+  var observer = new BrowserMutationObserver(flush);
+  var node = document.createTextNode('');
+  observer.observe(node, { characterData: true });
+
+  return function () {
+    node.data = iterations = ++iterations % 2;
+  };
+}
+
+// web worker
+function useMessageChannel() {
+  var channel = new MessageChannel();
+  channel.port1.onmessage = flush;
+  return function () {
+    return channel.port2.postMessage(0);
+  };
+}
+
+function useSetTimeout() {
+  // Store setTimeout reference so es6-promise will be unaffected by
+  // other code modifying setTimeout (like sinon.useFakeTimers())
+  var globalSetTimeout = setTimeout;
+  return function () {
+    return globalSetTimeout(flush, 1);
+  };
+}
+
+var queue = new Array(1000);
+function flush() {
+  for (var i = 0; i < len; i += 2) {
+    var callback = queue[i];
+    var arg = queue[i + 1];
+
+    callback(arg);
+
+    queue[i] = undefined;
+    queue[i + 1] = undefined;
+  }
+
+  len = 0;
+}
+
+function attemptVertx() {
+  try {
+    var r = commonjsRequire;
+    var vertx = r('vertx');
+    vertxNext = vertx.runOnLoop || vertx.runOnContext;
+    return useVertxTimer();
+  } catch (e) {
+    return useSetTimeout();
+  }
+}
+
+var scheduleFlush = undefined;
+// Decide what async method to use to triggering processing of queued callbacks:
+if (isNode) {
+  scheduleFlush = useNextTick();
+} else if (BrowserMutationObserver) {
+  scheduleFlush = useMutationObserver();
+} else if (isWorker) {
+  scheduleFlush = useMessageChannel();
+} else if (browserWindow === undefined && typeof commonjsRequire === 'function') {
+  scheduleFlush = attemptVertx();
+} else {
+  scheduleFlush = useSetTimeout();
+}
+
+function then(onFulfillment, onRejection) {
+  var _arguments = arguments;
+
+  var parent = this;
+
+  var child = new this.constructor(noop);
+
+  if (child[PROMISE_ID] === undefined) {
+    makePromise(child);
+  }
+
+  var _state = parent._state;
+
+  if (_state) {
+    (function () {
+      var callback = _arguments[_state - 1];
+      asap(function () {
+        return invokeCallback(_state, child, callback, parent._result);
+      });
+    })();
+  } else {
+    subscribe(parent, child, onFulfillment, onRejection);
+  }
+
+  return child;
+}
+
+/**
+  `Promise.resolve` returns a promise that will become resolved with the
+  passed `value`. It is shorthand for the following:
+
+  ```javascript
+  let promise = new Promise(function(resolve, reject){
+    resolve(1);
+  });
+
+  promise.then(function(value){
+    // value === 1
+  });
+  ```
+
+  Instead of writing the above, your code now simply becomes the following:
+
+  ```javascript
+  let promise = Promise.resolve(1);
+
+  promise.then(function(value){
+    // value === 1
+  });
+  ```
+
+  @method resolve
+  @static
+  @param {Any} value value that the returned promise will be resolved with
+  Useful for tooling.
+  @return {Promise} a promise that will become fulfilled with the given
+  `value`
+*/
+function resolve(object) {
+  /*jshint validthis:true */
+  var Constructor = this;
+
+  if (object && typeof object === 'object' && object.constructor === Constructor) {
+    return object;
+  }
+
+  var promise = new Constructor(noop);
+  _resolve(promise, object);
+  return promise;
+}
+
+var PROMISE_ID = Math.random().toString(36).substring(16);
+
+function noop() {}
+
+var PENDING = void 0;
+var FULFILLED = 1;
+var REJECTED = 2;
+
+var GET_THEN_ERROR = new ErrorObject();
+
+function selfFulfillment() {
+  return new TypeError("You cannot resolve a promise with itself");
+}
+
+function cannotReturnOwn() {
+  return new TypeError('A promises callback cannot return that same promise.');
+}
+
+function getThen(promise) {
+  try {
+    return promise.then;
+  } catch (error) {
+    GET_THEN_ERROR.error = error;
+    return GET_THEN_ERROR;
+  }
+}
+
+function tryThen(then, value, fulfillmentHandler, rejectionHandler) {
+  try {
+    then.call(value, fulfillmentHandler, rejectionHandler);
+  } catch (e) {
+    return e;
+  }
+}
+
+function handleForeignThenable(promise, thenable, then) {
+  asap(function (promise) {
+    var sealed = false;
+    var error = tryThen(then, thenable, function (value) {
+      if (sealed) {
+        return;
+      }
+      sealed = true;
+      if (thenable !== value) {
+        _resolve(promise, value);
+      } else {
+        fulfill(promise, value);
+      }
+    }, function (reason) {
+      if (sealed) {
+        return;
+      }
+      sealed = true;
+
+      _reject(promise, reason);
+    }, 'Settle: ' + (promise._label || ' unknown promise'));
+
+    if (!sealed && error) {
+      sealed = true;
+      _reject(promise, error);
+    }
+  }, promise);
+}
+
+function handleOwnThenable(promise, thenable) {
+  if (thenable._state === FULFILLED) {
+    fulfill(promise, thenable._result);
+  } else if (thenable._state === REJECTED) {
+    _reject(promise, thenable._result);
+  } else {
+    subscribe(thenable, undefined, function (value) {
+      return _resolve(promise, value);
+    }, function (reason) {
+      return _reject(promise, reason);
+    });
+  }
+}
+
+function handleMaybeThenable(promise, maybeThenable, then$$) {
+  if (maybeThenable.constructor === promise.constructor && then$$ === then && maybeThenable.constructor.resolve === resolve) {
+    handleOwnThenable(promise, maybeThenable);
+  } else {
+    if (then$$ === GET_THEN_ERROR) {
+      _reject(promise, GET_THEN_ERROR.error);
+      GET_THEN_ERROR.error = null;
+    } else if (then$$ === undefined) {
+      fulfill(promise, maybeThenable);
+    } else if (isFunction(then$$)) {
+      handleForeignThenable(promise, maybeThenable, then$$);
+    } else {
+      fulfill(promise, maybeThenable);
+    }
+  }
+}
+
+function _resolve(promise, value) {
+  if (promise === value) {
+    _reject(promise, selfFulfillment());
+  } else if (objectOrFunction(value)) {
+    handleMaybeThenable(promise, value, getThen(value));
+  } else {
+    fulfill(promise, value);
+  }
+}
+
+function publishRejection(promise) {
+  if (promise._onerror) {
+    promise._onerror(promise._result);
+  }
+
+  publish(promise);
+}
+
+function fulfill(promise, value) {
+  if (promise._state !== PENDING) {
+    return;
+  }
+
+  promise._result = value;
+  promise._state = FULFILLED;
+
+  if (promise._subscribers.length !== 0) {
+    asap(publish, promise);
+  }
+}
+
+function _reject(promise, reason) {
+  if (promise._state !== PENDING) {
+    return;
+  }
+  promise._state = REJECTED;
+  promise._result = reason;
+
+  asap(publishRejection, promise);
+}
+
+function subscribe(parent, child, onFulfillment, onRejection) {
+  var _subscribers = parent._subscribers;
+  var length = _subscribers.length;
+
+  parent._onerror = null;
+
+  _subscribers[length] = child;
+  _subscribers[length + FULFILLED] = onFulfillment;
+  _subscribers[length + REJECTED] = onRejection;
+
+  if (length === 0 && parent._state) {
+    asap(publish, parent);
+  }
+}
+
+function publish(promise) {
+  var subscribers = promise._subscribers;
+  var settled = promise._state;
+
+  if (subscribers.length === 0) {
+    return;
+  }
+
+  var child = undefined,
+      callback = undefined,
+      detail = promise._result;
+
+  for (var i = 0; i < subscribers.length; i += 3) {
+    child = subscribers[i];
+    callback = subscribers[i + settled];
+
+    if (child) {
+      invokeCallback(settled, child, callback, detail);
+    } else {
+      callback(detail);
+    }
+  }
+
+  promise._subscribers.length = 0;
+}
+
+function ErrorObject() {
+  this.error = null;
+}
+
+var TRY_CATCH_ERROR = new ErrorObject();
+
+function tryCatch(callback, detail) {
+  try {
+    return callback(detail);
+  } catch (e) {
+    TRY_CATCH_ERROR.error = e;
+    return TRY_CATCH_ERROR;
+  }
+}
+
+function invokeCallback(settled, promise, callback, detail) {
+  var hasCallback = isFunction(callback),
+      value = undefined,
+      error = undefined,
+      succeeded = undefined,
+      failed = undefined;
+
+  if (hasCallback) {
+    value = tryCatch(callback, detail);
+
+    if (value === TRY_CATCH_ERROR) {
+      failed = true;
+      error = value.error;
+      value.error = null;
+    } else {
+      succeeded = true;
+    }
+
+    if (promise === value) {
+      _reject(promise, cannotReturnOwn());
+      return;
+    }
+  } else {
+    value = detail;
+    succeeded = true;
+  }
+
+  if (promise._state !== PENDING) {
+    // noop
+  } else if (hasCallback && succeeded) {
+      _resolve(promise, value);
+    } else if (failed) {
+      _reject(promise, error);
+    } else if (settled === FULFILLED) {
+      fulfill(promise, value);
+    } else if (settled === REJECTED) {
+      _reject(promise, value);
+    }
+}
+
+function initializePromise(promise, resolver) {
+  try {
+    resolver(function resolvePromise(value) {
+      _resolve(promise, value);
+    }, function rejectPromise(reason) {
+      _reject(promise, reason);
+    });
+  } catch (e) {
+    _reject(promise, e);
+  }
+}
+
+var id = 0;
+function nextId() {
+  return id++;
+}
+
+function makePromise(promise) {
+  promise[PROMISE_ID] = id++;
+  promise._state = undefined;
+  promise._result = undefined;
+  promise._subscribers = [];
+}
+
+function Enumerator(Constructor, input) {
+  this._instanceConstructor = Constructor;
+  this.promise = new Constructor(noop);
+
+  if (!this.promise[PROMISE_ID]) {
+    makePromise(this.promise);
+  }
+
+  if (isArray(input)) {
+    this._input = input;
+    this.length = input.length;
+    this._remaining = input.length;
+
+    this._result = new Array(this.length);
+
+    if (this.length === 0) {
+      fulfill(this.promise, this._result);
+    } else {
+      this.length = this.length || 0;
+      this._enumerate();
+      if (this._remaining === 0) {
+        fulfill(this.promise, this._result);
+      }
+    }
+  } else {
+    _reject(this.promise, validationError());
+  }
+}
+
+function validationError() {
+  return new Error('Array Methods must be provided an Array');
+}
+
+Enumerator.prototype._enumerate = function () {
+  var length = this.length;
+  var _input = this._input;
+
+  for (var i = 0; this._state === PENDING && i < length; i++) {
+    this._eachEntry(_input[i], i);
+  }
+};
+
+Enumerator.prototype._eachEntry = function (entry, i) {
+  var c = this._instanceConstructor;
+  var resolve$$ = c.resolve;
+
+  if (resolve$$ === resolve) {
+    var _then = getThen(entry);
+
+    if (_then === then && entry._state !== PENDING) {
+      this._settledAt(entry._state, i, entry._result);
+    } else if (typeof _then !== 'function') {
+      this._remaining--;
+      this._result[i] = entry;
+    } else if (c === Promise) {
+      var promise = new c(noop);
+      handleMaybeThenable(promise, entry, _then);
+      this._willSettleAt(promise, i);
+    } else {
+      this._willSettleAt(new c(function (resolve$$) {
+        return resolve$$(entry);
+      }), i);
+    }
+  } else {
+    this._willSettleAt(resolve$$(entry), i);
+  }
+};
+
+Enumerator.prototype._settledAt = function (state, i, value) {
+  var promise = this.promise;
+
+  if (promise._state === PENDING) {
+    this._remaining--;
+
+    if (state === REJECTED) {
+      _reject(promise, value);
+    } else {
+      this._result[i] = value;
+    }
+  }
+
+  if (this._remaining === 0) {
+    fulfill(promise, this._result);
+  }
+};
+
+Enumerator.prototype._willSettleAt = function (promise, i) {
+  var enumerator = this;
+
+  subscribe(promise, undefined, function (value) {
+    return enumerator._settledAt(FULFILLED, i, value);
+  }, function (reason) {
+    return enumerator._settledAt(REJECTED, i, reason);
+  });
+};
+
+/**
+  `Promise.all` accepts an array of promises, and returns a new promise which
+  is fulfilled with an array of fulfillment values for the passed promises, or
+  rejected with the reason of the first passed promise to be rejected. It casts all
+  elements of the passed iterable to promises as it runs this algorithm.
+
+  Example:
+
+  ```javascript
+  let promise1 = resolve(1);
+  let promise2 = resolve(2);
+  let promise3 = resolve(3);
+  let promises = [ promise1, promise2, promise3 ];
+
+  Promise.all(promises).then(function(array){
+    // The array here would be [ 1, 2, 3 ];
+  });
+  ```
+
+  If any of the `promises` given to `all` are rejected, the first promise
+  that is rejected will be given as an argument to the returned promises's
+  rejection handler. For example:
+
+  Example:
+
+  ```javascript
+  let promise1 = resolve(1);
+  let promise2 = reject(new Error("2"));
+  let promise3 = reject(new Error("3"));
+  let promises = [ promise1, promise2, promise3 ];
+
+  Promise.all(promises).then(function(array){
+    // Code here never runs because there are rejected promises!
+  }, function(error) {
+    // error.message === "2"
+  });
+  ```
+
+  @method all
+  @static
+  @param {Array} entries array of promises
+  @param {String} label optional string for labeling the promise.
+  Useful for tooling.
+  @return {Promise} promise that is fulfilled when all `promises` have been
+  fulfilled, or rejected if any of them become rejected.
+  @static
+*/
+function all(entries) {
+  return new Enumerator(this, entries).promise;
+}
+
+/**
+  `Promise.race` returns a new promise which is settled in the same way as the
+  first passed promise to settle.
+
+  Example:
+
+  ```javascript
+  let promise1 = new Promise(function(resolve, reject){
+    setTimeout(function(){
+      resolve('promise 1');
+    }, 200);
+  });
+
+  let promise2 = new Promise(function(resolve, reject){
+    setTimeout(function(){
+      resolve('promise 2');
+    }, 100);
+  });
+
+  Promise.race([promise1, promise2]).then(function(result){
+    // result === 'promise 2' because it was resolved before promise1
+    // was resolved.
+  });
+  ```
+
+  `Promise.race` is deterministic in that only the state of the first
+  settled promise matters. For example, even if other promises given to the
+  `promises` array argument are resolved, but the first settled promise has
+  become rejected before the other promises became fulfilled, the returned
+  promise will become rejected:
+
+  ```javascript
+  let promise1 = new Promise(function(resolve, reject){
+    setTimeout(function(){
+      resolve('promise 1');
+    }, 200);
+  });
+
+  let promise2 = new Promise(function(resolve, reject){
+    setTimeout(function(){
+      reject(new Error('promise 2'));
+    }, 100);
+  });
+
+  Promise.race([promise1, promise2]).then(function(result){
+    // Code here never runs
+  }, function(reason){
+    // reason.message === 'promise 2' because promise 2 became rejected before
+    // promise 1 became fulfilled
+  });
+  ```
+
+  An example real-world use case is implementing timeouts:
+
+  ```javascript
+  Promise.race([ajax('foo.json'), timeout(5000)])
+  ```
+
+  @method race
+  @static
+  @param {Array} promises array of promises to observe
+  Useful for tooling.
+  @return {Promise} a promise which settles in the same way as the first passed
+  promise to settle.
+*/
+function race(entries) {
+  /*jshint validthis:true */
+  var Constructor = this;
+
+  if (!isArray(entries)) {
+    return new Constructor(function (_, reject) {
+      return reject(new TypeError('You must pass an array to race.'));
+    });
+  } else {
+    return new Constructor(function (resolve, reject) {
+      var length = entries.length;
+      for (var i = 0; i < length; i++) {
+        Constructor.resolve(entries[i]).then(resolve, reject);
+      }
+    });
+  }
+}
+
+/**
+  `Promise.reject` returns a promise rejected with the passed `reason`.
+  It is shorthand for the following:
+
+  ```javascript
+  let promise = new Promise(function(resolve, reject){
+    reject(new Error('WHOOPS'));
+  });
+
+  promise.then(function(value){
+    // Code here doesn't run because the promise is rejected!
+  }, function(reason){
+    // reason.message === 'WHOOPS'
+  });
+  ```
+
+  Instead of writing the above, your code now simply becomes the following:
+
+  ```javascript
+  let promise = Promise.reject(new Error('WHOOPS'));
+
+  promise.then(function(value){
+    // Code here doesn't run because the promise is rejected!
+  }, function(reason){
+    // reason.message === 'WHOOPS'
+  });
+  ```
+
+  @method reject
+  @static
+  @param {Any} reason value that the returned promise will be rejected with.
+  Useful for tooling.
+  @return {Promise} a promise rejected with the given `reason`.
+*/
+function reject(reason) {
+  /*jshint validthis:true */
+  var Constructor = this;
+  var promise = new Constructor(noop);
+  _reject(promise, reason);
+  return promise;
+}
+
+function needsResolver() {
+  throw new TypeError('You must pass a resolver function as the first argument to the promise constructor');
+}
+
+function needsNew() {
+  throw new TypeError("Failed to construct 'Promise': Please use the 'new' operator, this object constructor cannot be called as a function.");
+}
+
+/**
+  Promise objects represent the eventual result of an asynchronous operation. The
+  primary way of interacting with a promise is through its `then` method, which
+  registers callbacks to receive either a promise's eventual value or the reason
+  why the promise cannot be fulfilled.
+
+  Terminology
+  -----------
+
+  - `promise` is an object or function with a `then` method whose behavior conforms to this specification.
+  - `thenable` is an object or function that defines a `then` method.
+  - `value` is any legal JavaScript value (including undefined, a thenable, or a promise).
+  - `exception` is a value that is thrown using the throw statement.
+  - `reason` is a value that indicates why a promise was rejected.
+  - `settled` the final resting state of a promise, fulfilled or rejected.
+
+  A promise can be in one of three states: pending, fulfilled, or rejected.
+
+  Promises that are fulfilled have a fulfillment value and are in the fulfilled
+  state.  Promises that are rejected have a rejection reason and are in the
+  rejected state.  A fulfillment value is never a thenable.
+
+  Promises can also be said to *resolve* a value.  If this value is also a
+  promise, then the original promise's settled state will match the value's
+  settled state.  So a promise that *resolves* a promise that rejects will
+  itself reject, and a promise that *resolves* a promise that fulfills will
+  itself fulfill.
+
+
+  Basic Usage:
+  ------------
+
+  ```js
+  let promise = new Promise(function(resolve, reject) {
+    // on success
+    resolve(value);
+
+    // on failure
+    reject(reason);
+  });
+
+  promise.then(function(value) {
+    // on fulfillment
+  }, function(reason) {
+    // on rejection
+  });
+  ```
+
+  Advanced Usage:
+  ---------------
+
+  Promises shine when abstracting away asynchronous interactions such as
+  `XMLHttpRequest`s.
+
+  ```js
+  function getJSON(url) {
+    return new Promise(function(resolve, reject){
+      let xhr = new XMLHttpRequest();
+
+      xhr.open('GET', url);
+      xhr.onreadystatechange = handler;
+      xhr.responseType = 'json';
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.send();
+
+      function handler() {
+        if (this.readyState === this.DONE) {
+          if (this.status === 200) {
+            resolve(this.response);
+          } else {
+            reject(new Error('getJSON: `' + url + '` failed with status: [' + this.status + ']'));
+          }
+        }
+      };
+    });
+  }
+
+  getJSON('/posts.json').then(function(json) {
+    // on fulfillment
+  }, function(reason) {
+    // on rejection
+  });
+  ```
+
+  Unlike callbacks, promises are great composable primitives.
+
+  ```js
+  Promise.all([
+    getJSON('/posts'),
+    getJSON('/comments')
+  ]).then(function(values){
+    values[0] // => postsJSON
+    values[1] // => commentsJSON
+
+    return values;
+  });
+  ```
+
+  @class Promise
+  @param {function} resolver
+  Useful for tooling.
+  @constructor
+*/
+function Promise(resolver) {
+  this[PROMISE_ID] = nextId();
+  this._result = this._state = undefined;
+  this._subscribers = [];
+
+  if (noop !== resolver) {
+    typeof resolver !== 'function' && needsResolver();
+    this instanceof Promise ? initializePromise(this, resolver) : needsNew();
+  }
+}
+
+Promise.all = all;
+Promise.race = race;
+Promise.resolve = resolve;
+Promise.reject = reject;
+Promise._setScheduler = setScheduler;
+Promise._setAsap = setAsap;
+Promise._asap = asap;
+
+Promise.prototype = {
+  constructor: Promise,
+
+  /**
+    The primary way of interacting with a promise is through its `then` method,
+    which registers callbacks to receive either a promise's eventual value or the
+    reason why the promise cannot be fulfilled.
+  
+    ```js
+    findUser().then(function(user){
+      // user is available
+    }, function(reason){
+      // user is unavailable, and you are given the reason why
+    });
+    ```
+  
+    Chaining
+    --------
+  
+    The return value of `then` is itself a promise.  This second, 'downstream'
+    promise is resolved with the return value of the first promise's fulfillment
+    or rejection handler, or rejected if the handler throws an exception.
+  
+    ```js
+    findUser().then(function (user) {
+      return user.name;
+    }, function (reason) {
+      return 'default name';
+    }).then(function (userName) {
+      // If `findUser` fulfilled, `userName` will be the user's name, otherwise it
+      // will be `'default name'`
+    });
+  
+    findUser().then(function (user) {
+      throw new Error('Found user, but still unhappy');
+    }, function (reason) {
+      throw new Error('`findUser` rejected and we're unhappy');
+    }).then(function (value) {
+      // never reached
+    }, function (reason) {
+      // if `findUser` fulfilled, `reason` will be 'Found user, but still unhappy'.
+      // If `findUser` rejected, `reason` will be '`findUser` rejected and we're unhappy'.
+    });
+    ```
+    If the downstream promise does not specify a rejection handler, rejection reasons will be propagated further downstream.
+  
+    ```js
+    findUser().then(function (user) {
+      throw new PedagogicalException('Upstream error');
+    }).then(function (value) {
+      // never reached
+    }).then(function (value) {
+      // never reached
+    }, function (reason) {
+      // The `PedgagocialException` is propagated all the way down to here
+    });
+    ```
+  
+    Assimilation
+    ------------
+  
+    Sometimes the value you want to propagate to a downstream promise can only be
+    retrieved asynchronously. This can be achieved by returning a promise in the
+    fulfillment or rejection handler. The downstream promise will then be pending
+    until the returned promise is settled. This is called *assimilation*.
+  
+    ```js
+    findUser().then(function (user) {
+      return findCommentsByAuthor(user);
+    }).then(function (comments) {
+      // The user's comments are now available
+    });
+    ```
+  
+    If the assimliated promise rejects, then the downstream promise will also reject.
+  
+    ```js
+    findUser().then(function (user) {
+      return findCommentsByAuthor(user);
+    }).then(function (comments) {
+      // If `findCommentsByAuthor` fulfills, we'll have the value here
+    }, function (reason) {
+      // If `findCommentsByAuthor` rejects, we'll have the reason here
+    });
+    ```
+  
+    Simple Example
+    --------------
+  
+    Synchronous Example
+  
+    ```javascript
+    let result;
+  
+    try {
+      result = findResult();
+      // success
+    } catch(reason) {
+      // failure
+    }
+    ```
+  
+    Errback Example
+  
+    ```js
+    findResult(function(result, err){
+      if (err) {
+        // failure
+      } else {
+        // success
+      }
+    });
+    ```
+  
+    Promise Example;
+  
+    ```javascript
+    findResult().then(function(result){
+      // success
+    }, function(reason){
+      // failure
+    });
+    ```
+  
+    Advanced Example
+    --------------
+  
+    Synchronous Example
+  
+    ```javascript
+    let author, books;
+  
+    try {
+      author = findAuthor();
+      books  = findBooksByAuthor(author);
+      // success
+    } catch(reason) {
+      // failure
+    }
+    ```
+  
+    Errback Example
+  
+    ```js
+  
+    function foundBooks(books) {
+  
+    }
+  
+    function failure(reason) {
+  
+    }
+  
+    findAuthor(function(author, err){
+      if (err) {
+        failure(err);
+        // failure
+      } else {
+        try {
+          findBoooksByAuthor(author, function(books, err) {
+            if (err) {
+              failure(err);
+            } else {
+              try {
+                foundBooks(books);
+              } catch(reason) {
+                failure(reason);
+              }
+            }
+          });
+        } catch(error) {
+          failure(err);
+        }
+        // success
+      }
+    });
+    ```
+  
+    Promise Example;
+  
+    ```javascript
+    findAuthor().
+      then(findBooksByAuthor).
+      then(function(books){
+        // found books
+    }).catch(function(reason){
+      // something went wrong
+    });
+    ```
+  
+    @method then
+    @param {Function} onFulfilled
+    @param {Function} onRejected
+    Useful for tooling.
+    @return {Promise}
+  */
+  then: then,
+
+  /**
+    `catch` is simply sugar for `then(undefined, onRejection)` which makes it the same
+    as the catch block of a try/catch statement.
+  
+    ```js
+    function findAuthor(){
+      throw new Error('couldn't find that author');
+    }
+  
+    // synchronous
+    try {
+      findAuthor();
+    } catch(reason) {
+      // something went wrong
+    }
+  
+    // async with promises
+    findAuthor().catch(function(reason){
+      // something went wrong
+    });
+    ```
+  
+    @method catch
+    @param {Function} onRejection
+    Useful for tooling.
+    @return {Promise}
+  */
+  'catch': function _catch(onRejection) {
+    return this.then(null, onRejection);
+  }
+};
+
+function polyfill() {
+    var local = undefined;
+
+    if (typeof commonjsGlobal !== 'undefined') {
+        local = commonjsGlobal;
+    } else if (typeof self !== 'undefined') {
+        local = self;
+    } else {
+        try {
+            local = Function('return this')();
+        } catch (e) {
+            throw new Error('polyfill failed because global object is unavailable in this environment');
+        }
+    }
+
+    var P = local.Promise;
+
+    if (P) {
+        var promiseToString = null;
+        try {
+            promiseToString = Object.prototype.toString.call(P.resolve());
+        } catch (e) {
+            // silently ignored
+        }
+
+        if (promiseToString === '[object Promise]' && !P.cast) {
+            return;
+        }
+    }
+
+    local.Promise = Promise;
+}
+
+// Strange compat..
+Promise.polyfill = polyfill;
+Promise.Promise = Promise;
+
+return Promise;
+
+})));
+});
+
+var auto = es6Promise.polyfill();
+
+/** Detect free variable `global` from Node.js. */
+var freeGlobal = typeof global == 'object' && global && global.Object === Object && global;
+
+/** Detect free variable `self`. */
+var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
+
+/** Used as a reference to the global object. */
+var root = freeGlobal || freeSelf || Function('return this')();
+
+/** Built-in value references. */
+var Symbol = root.Symbol;
+
+/** Used for built-in method references. */
+var objectProto$1 = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty$1 = objectProto$1.hasOwnProperty;
+
+/**
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var nativeObjectToString = objectProto$1.toString;
+
+/** Built-in value references. */
+var symToStringTag$1 = Symbol ? Symbol.toStringTag : undefined;
+
+/**
+ * A specialized version of `baseGetTag` which ignores `Symbol.toStringTag` values.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @returns {string} Returns the raw `toStringTag`.
+ */
+function getRawTag(value) {
+  var isOwn = hasOwnProperty$1.call(value, symToStringTag$1),
+      tag = value[symToStringTag$1];
+
+  try {
+    value[symToStringTag$1] = undefined;
+    var unmasked = true;
+  } catch (e) {}
+
+  var result = nativeObjectToString.call(value);
+  if (unmasked) {
+    if (isOwn) {
+      value[symToStringTag$1] = tag;
+    } else {
+      delete value[symToStringTag$1];
+    }
+  }
+  return result;
+}
+
+/** Used for built-in method references. */
+var objectProto$2 = Object.prototype;
+
+/**
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var nativeObjectToString$1 = objectProto$2.toString;
+
+/**
+ * Converts `value` to a string using `Object.prototype.toString`.
+ *
+ * @private
+ * @param {*} value The value to convert.
+ * @returns {string} Returns the converted string.
+ */
+function objectToString(value) {
+  return nativeObjectToString$1.call(value);
+}
+
+/** `Object#toString` result references. */
+var nullTag = '[object Null]';
+var undefinedTag = '[object Undefined]';
+
+/** Built-in value references. */
+var symToStringTag = Symbol ? Symbol.toStringTag : undefined;
+
+/**
+ * The base implementation of `getTag` without fallbacks for buggy environments.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @returns {string} Returns the `toStringTag`.
+ */
+function baseGetTag(value) {
+  if (value == null) {
+    return value === undefined ? undefinedTag : nullTag;
+  }
+  return (symToStringTag && symToStringTag in Object(value))
+    ? getRawTag(value)
+    : objectToString(value);
+}
+
+/**
+ * Creates a unary function that invokes `func` with its argument transformed.
+ *
+ * @private
+ * @param {Function} func The function to wrap.
+ * @param {Function} transform The argument transform.
+ * @returns {Function} Returns the new function.
+ */
+function overArg(func, transform) {
+  return function(arg) {
+    return func(transform(arg));
+  };
+}
+
+/** Built-in value references. */
+var getPrototype = overArg(Object.getPrototypeOf, Object);
+
+/**
+ * Checks if `value` is object-like. A value is object-like if it's not `null`
+ * and has a `typeof` result of "object".
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ * @example
+ *
+ * _.isObjectLike({});
+ * // => true
+ *
+ * _.isObjectLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isObjectLike(_.noop);
+ * // => false
+ *
+ * _.isObjectLike(null);
+ * // => false
+ */
+function isObjectLike(value) {
+  return value != null && typeof value == 'object';
+}
+
+/** `Object#toString` result references. */
+var objectTag = '[object Object]';
+
+/** Used for built-in method references. */
+var funcProto = Function.prototype;
+var objectProto = Object.prototype;
+
+/** Used to resolve the decompiled source of functions. */
+var funcToString = funcProto.toString;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/** Used to infer the `Object` constructor. */
+var objectCtorString = funcToString.call(Object);
+
+/**
+ * Checks if `value` is a plain object, that is, an object created by the
+ * `Object` constructor or one with a `[[Prototype]]` of `null`.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.8.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a plain object, else `false`.
+ * @example
+ *
+ * function Foo() {
+ *   this.a = 1;
+ * }
+ *
+ * _.isPlainObject(new Foo);
+ * // => false
+ *
+ * _.isPlainObject([1, 2, 3]);
+ * // => false
+ *
+ * _.isPlainObject({ 'x': 0, 'y': 0 });
+ * // => true
+ *
+ * _.isPlainObject(Object.create(null));
+ * // => true
+ */
+function isPlainObject(value) {
+  if (!isObjectLike(value) || baseGetTag(value) != objectTag) {
+    return false;
+  }
+  var proto = getPrototype(value);
+  if (proto === null) {
+    return true;
+  }
+  var Ctor = hasOwnProperty.call(proto, 'constructor') && proto.constructor;
+  return typeof Ctor == 'function' && Ctor instanceof Ctor &&
+    funcToString.call(Ctor) == objectCtorString;
+}
+
+var ponyfill = createCommonjsModule(function (module, exports) {
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+	value: true
+});
+exports['default'] = symbolObservablePonyfill;
+function symbolObservablePonyfill(root) {
+	var result;
+	var _Symbol = root.Symbol;
+
+	if (typeof _Symbol === 'function') {
+		if (_Symbol.observable) {
+			result = _Symbol.observable;
+		} else {
+			result = _Symbol('observable');
+			_Symbol.observable = result;
+		}
+	} else {
+		result = '@@observable';
+	}
+
+	return result;
+}
+});
+
+var index$1 = createCommonjsModule(function (module, exports) {
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+
+
+var _ponyfill2 = _interopRequireDefault(ponyfill);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
+
+var root; /* global window */
+
+
+if (typeof self !== 'undefined') {
+  root = self;
+} else if (typeof window !== 'undefined') {
+  root = window;
+} else if (typeof commonjsGlobal !== 'undefined') {
+  root = commonjsGlobal;
+} else {
+  root = module;
+}
+
+var result = (0, _ponyfill2['default'])(root);
+exports['default'] = result;
+});
+
+var index = index$1;
+
+/**
+ * These are private action types reserved by Redux.
+ * For any unknown actions, you must return the current state.
+ * If the current state is undefined, you must return the initial state.
+ * Do not reference these action types directly in your code.
+ */
+var ActionTypes = {
+  INIT: '@@redux/INIT'
+};
+
+/**
+ * Creates a Redux store that holds the state tree.
+ * The only way to change the data in the store is to call `dispatch()` on it.
+ *
+ * There should only be a single store in your app. To specify how different
+ * parts of the state tree respond to actions, you may combine several reducers
+ * into a single reducer function by using `combineReducers`.
+ *
+ * @param {Function} reducer A function that returns the next state tree, given
+ * the current state tree and the action to handle.
+ *
+ * @param {any} [preloadedState] The initial state. You may optionally specify it
+ * to hydrate the state from the server in universal apps, or to restore a
+ * previously serialized user session.
+ * If you use `combineReducers` to produce the root reducer function, this must be
+ * an object with the same shape as `combineReducers` keys.
+ *
+ * @param {Function} enhancer The store enhancer. You may optionally specify it
+ * to enhance the store with third-party capabilities such as middleware,
+ * time travel, persistence, etc. The only store enhancer that ships with Redux
+ * is `applyMiddleware()`.
+ *
+ * @returns {Store} A Redux store that lets you read the state, dispatch actions
+ * and subscribe to changes.
+ */
+function createStore(reducer, preloadedState, enhancer) {
+  var _ref2;
+
+  if (typeof preloadedState === 'function' && typeof enhancer === 'undefined') {
+    enhancer = preloadedState;
+    preloadedState = undefined;
+  }
+
+  if (typeof enhancer !== 'undefined') {
+    if (typeof enhancer !== 'function') {
+      throw new Error('Expected the enhancer to be a function.');
+    }
+
+    return enhancer(createStore)(reducer, preloadedState);
+  }
+
+  if (typeof reducer !== 'function') {
+    throw new Error('Expected the reducer to be a function.');
+  }
+
+  var currentReducer = reducer;
+  var currentState = preloadedState;
+  var currentListeners = [];
+  var nextListeners = currentListeners;
+  var isDispatching = false;
+
+  function ensureCanMutateNextListeners() {
+    if (nextListeners === currentListeners) {
+      nextListeners = currentListeners.slice();
+    }
+  }
+
+  /**
+   * Reads the state tree managed by the store.
+   *
+   * @returns {any} The current state tree of your application.
+   */
+  function getState() {
+    return currentState;
+  }
+
+  /**
+   * Adds a change listener. It will be called any time an action is dispatched,
+   * and some part of the state tree may potentially have changed. You may then
+   * call `getState()` to read the current state tree inside the callback.
+   *
+   * You may call `dispatch()` from a change listener, with the following
+   * caveats:
+   *
+   * 1. The subscriptions are snapshotted just before every `dispatch()` call.
+   * If you subscribe or unsubscribe while the listeners are being invoked, this
+   * will not have any effect on the `dispatch()` that is currently in progress.
+   * However, the next `dispatch()` call, whether nested or not, will use a more
+   * recent snapshot of the subscription list.
+   *
+   * 2. The listener should not expect to see all state changes, as the state
+   * might have been updated multiple times during a nested `dispatch()` before
+   * the listener is called. It is, however, guaranteed that all subscribers
+   * registered before the `dispatch()` started will be called with the latest
+   * state by the time it exits.
+   *
+   * @param {Function} listener A callback to be invoked on every dispatch.
+   * @returns {Function} A function to remove this change listener.
+   */
+  function subscribe(listener) {
+    if (typeof listener !== 'function') {
+      throw new Error('Expected listener to be a function.');
+    }
+
+    var isSubscribed = true;
+
+    ensureCanMutateNextListeners();
+    nextListeners.push(listener);
+
+    return function unsubscribe() {
+      if (!isSubscribed) {
+        return;
+      }
+
+      isSubscribed = false;
+
+      ensureCanMutateNextListeners();
+      var index$$1 = nextListeners.indexOf(listener);
+      nextListeners.splice(index$$1, 1);
+    };
+  }
+
+  /**
+   * Dispatches an action. It is the only way to trigger a state change.
+   *
+   * The `reducer` function, used to create the store, will be called with the
+   * current state tree and the given `action`. Its return value will
+   * be considered the **next** state of the tree, and the change listeners
+   * will be notified.
+   *
+   * The base implementation only supports plain object actions. If you want to
+   * dispatch a Promise, an Observable, a thunk, or something else, you need to
+   * wrap your store creating function into the corresponding middleware. For
+   * example, see the documentation for the `redux-thunk` package. Even the
+   * middleware will eventually dispatch plain object actions using this method.
+   *
+   * @param {Object} action A plain object representing “what changed”. It is
+   * a good idea to keep actions serializable so you can record and replay user
+   * sessions, or use the time travelling `redux-devtools`. An action must have
+   * a `type` property which may not be `undefined`. It is a good idea to use
+   * string constants for action types.
+   *
+   * @returns {Object} For convenience, the same action object you dispatched.
+   *
+   * Note that, if you use a custom middleware, it may wrap `dispatch()` to
+   * return something else (for example, a Promise you can await).
+   */
+  function dispatch(action) {
+    if (!isPlainObject(action)) {
+      throw new Error('Actions must be plain objects. ' + 'Use custom middleware for async actions.');
+    }
+
+    if (typeof action.type === 'undefined') {
+      throw new Error('Actions may not have an undefined "type" property. ' + 'Have you misspelled a constant?');
+    }
+
+    if (isDispatching) {
+      throw new Error('Reducers may not dispatch actions.');
+    }
+
+    try {
+      isDispatching = true;
+      currentState = currentReducer(currentState, action);
+    } finally {
+      isDispatching = false;
+    }
+
+    var listeners = currentListeners = nextListeners;
+    for (var i = 0; i < listeners.length; i++) {
+      listeners[i]();
+    }
+
+    return action;
+  }
+
+  /**
+   * Replaces the reducer currently used by the store to calculate the state.
+   *
+   * You might need this if your app implements code splitting and you want to
+   * load some of the reducers dynamically. You might also need this if you
+   * implement a hot reloading mechanism for Redux.
+   *
+   * @param {Function} nextReducer The reducer for the store to use instead.
+   * @returns {void}
+   */
+  function replaceReducer(nextReducer) {
+    if (typeof nextReducer !== 'function') {
+      throw new Error('Expected the nextReducer to be a function.');
+    }
+
+    currentReducer = nextReducer;
+    dispatch({ type: ActionTypes.INIT });
+  }
+
+  /**
+   * Interoperability point for observable/reactive libraries.
+   * @returns {observable} A minimal observable of state changes.
+   * For more information, see the observable proposal:
+   * https://github.com/zenparsing/es-observable
+   */
+  function observable() {
+    var _ref;
+
+    var outerSubscribe = subscribe;
+    return _ref = {
+      /**
+       * The minimal observable subscription method.
+       * @param {Object} observer Any object that can be used as an observer.
+       * The observer object should have a `next` method.
+       * @returns {subscription} An object with an `unsubscribe` method that can
+       * be used to unsubscribe the observable from the store, and prevent further
+       * emission of values from the observable.
+       */
+      subscribe: function subscribe(observer) {
+        if (typeof observer !== 'object') {
+          throw new TypeError('Expected the observer to be an object.');
+        }
+
+        function observeState() {
+          if (observer.next) {
+            observer.next(getState());
+          }
+        }
+
+        observeState();
+        var unsubscribe = outerSubscribe(observeState);
+        return { unsubscribe: unsubscribe };
+      }
+    }, _ref[index] = function () {
+      return this;
+    }, _ref;
+  }
+
+  // When a store is created, an "INIT" action is dispatched so that every
+  // reducer returns their initial state. This effectively populates
+  // the initial state tree.
+  dispatch({ type: ActionTypes.INIT });
+
+  return _ref2 = {
+    dispatch: dispatch,
+    subscribe: subscribe,
+    getState: getState,
+    replaceReducer: replaceReducer
+  }, _ref2[index] = observable, _ref2;
+}
+
+/**
+ * Prints a warning in the console if it exists.
+ *
+ * @param {String} message The warning message.
+ * @returns {void}
+ */
+function warning(message) {
+  /* eslint-disable no-console */
+  if (typeof console !== 'undefined' && typeof console.error === 'function') {
+    console.error(message);
+  }
+  /* eslint-enable no-console */
+  try {
+    // This error was thrown as a convenience so that if you enable
+    // "break on all exceptions" in your console,
+    // it would pause the execution at this line.
+    throw new Error(message);
+    /* eslint-disable no-empty */
+  } catch (e) {}
+  /* eslint-enable no-empty */
+}
+
+function getUndefinedStateErrorMessage(key, action) {
+  var actionType = action && action.type;
+  var actionName = actionType && '"' + actionType.toString() + '"' || 'an action';
+
+  return 'Given action ' + actionName + ', reducer "' + key + '" returned undefined. ' + 'To ignore an action, you must explicitly return the previous state.';
+}
+
+function assertReducerSanity(reducers) {
+  Object.keys(reducers).forEach(function (key) {
+    var reducer = reducers[key];
+    var initialState = reducer(undefined, { type: ActionTypes.INIT });
+
+    if (typeof initialState === 'undefined') {
+      throw new Error('Reducer "' + key + '" returned undefined during initialization. ' + 'If the state passed to the reducer is undefined, you must ' + 'explicitly return the initial state. The initial state may ' + 'not be undefined.');
+    }
+
+    var type = '@@redux/PROBE_UNKNOWN_ACTION_' + Math.random().toString(36).substring(7).split('').join('.');
+    if (typeof reducer(undefined, { type: type }) === 'undefined') {
+      throw new Error('Reducer "' + key + '" returned undefined when probed with a random type. ' + ('Don\'t try to handle ' + ActionTypes.INIT + ' or other actions in "redux/*" ') + 'namespace. They are considered private. Instead, you must return the ' + 'current state for any unknown actions, unless it is undefined, ' + 'in which case you must return the initial state, regardless of the ' + 'action type. The initial state may not be undefined.');
+    }
+  });
+}
+
+/**
+ * Turns an object whose values are different reducer functions, into a single
+ * reducer function. It will call every child reducer, and gather their results
+ * into a single state object, whose keys correspond to the keys of the passed
+ * reducer functions.
+ *
+ * @param {Object} reducers An object whose values correspond to different
+ * reducer functions that need to be combined into one. One handy way to obtain
+ * it is to use ES6 `import * as reducers` syntax. The reducers may never return
+ * undefined for any action. Instead, they should return their initial state
+ * if the state passed to them was undefined, and the current state for any
+ * unrecognized action.
+ *
+ * @returns {Function} A reducer function that invokes every reducer inside the
+ * passed object, and builds a state object with the same shape.
+ */
+function combineReducers(reducers) {
+  var reducerKeys = Object.keys(reducers);
+  var finalReducers = {};
+  for (var i = 0; i < reducerKeys.length; i++) {
+    var key = reducerKeys[i];
+
+    if (typeof reducers[key] === 'function') {
+      finalReducers[key] = reducers[key];
+    }
+  }
+  var finalReducerKeys = Object.keys(finalReducers);
+
+  var sanityError;
+  try {
+    assertReducerSanity(finalReducers);
+  } catch (e) {
+    sanityError = e;
+  }
+
+  return function combination() {
+    var state = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
+    var action = arguments[1];
+
+    if (sanityError) {
+      throw sanityError;
+    }
+
+    var hasChanged = false;
+    var nextState = {};
+    for (var i = 0; i < finalReducerKeys.length; i++) {
+      var key = finalReducerKeys[i];
+      var reducer = finalReducers[key];
+      var previousStateForKey = state[key];
+      var nextStateForKey = reducer(previousStateForKey, action);
+      if (typeof nextStateForKey === 'undefined') {
+        var errorMessage = getUndefinedStateErrorMessage(key, action);
+        throw new Error(errorMessage);
+      }
+      nextState[key] = nextStateForKey;
+      hasChanged = hasChanged || nextStateForKey !== previousStateForKey;
+    }
+    return hasChanged ? nextState : state;
+  };
+}
+
+/**
+ * Composes single-argument functions from right to left. The rightmost
+ * function can take multiple arguments as it provides the signature for
+ * the resulting composite function.
+ *
+ * @param {...Function} funcs The functions to compose.
+ * @returns {Function} A function obtained by composing the argument functions
+ * from right to left. For example, compose(f, g, h) is identical to doing
+ * (...args) => f(g(h(...args))).
+ */
+
+function compose() {
+  for (var _len = arguments.length, funcs = Array(_len), _key = 0; _key < _len; _key++) {
+    funcs[_key] = arguments[_key];
+  }
+
+  if (funcs.length === 0) {
+    return function (arg) {
+      return arg;
+    };
+  }
+
+  if (funcs.length === 1) {
+    return funcs[0];
+  }
+
+  var last = funcs[funcs.length - 1];
+  var rest = funcs.slice(0, -1);
+  return function () {
+    return rest.reduceRight(function (composed, f) {
+      return f(composed);
+    }, last.apply(undefined, arguments));
+  };
+}
+
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
+/**
+ * Creates a store enhancer that applies middleware to the dispatch method
+ * of the Redux store. This is handy for a variety of tasks, such as expressing
+ * asynchronous actions in a concise manner, or logging every action payload.
+ *
+ * See `redux-thunk` package as an example of the Redux middleware.
+ *
+ * Because middleware is potentially asynchronous, this should be the first
+ * store enhancer in the composition chain.
+ *
+ * Note that each middleware will be given the `dispatch` and `getState` functions
+ * as named arguments.
+ *
+ * @param {...Function} middlewares The middleware chain to be applied.
+ * @returns {Function} A store enhancer applying the middleware.
+ */
+function applyMiddleware() {
+  for (var _len = arguments.length, middlewares = Array(_len), _key = 0; _key < _len; _key++) {
+    middlewares[_key] = arguments[_key];
+  }
+
+  return function (createStore) {
+    return function (reducer, preloadedState, enhancer) {
+      var store = createStore(reducer, preloadedState, enhancer);
+      var _dispatch = store.dispatch;
+      var chain = [];
+
+      var middlewareAPI = {
+        getState: store.getState,
+        dispatch: function dispatch(action) {
+          return _dispatch(action);
+        }
+      };
+      chain = middlewares.map(function (middleware) {
+        return middleware(middlewareAPI);
+      });
+      _dispatch = compose.apply(undefined, chain)(store.dispatch);
+
+      return _extends({}, store, {
+        dispatch: _dispatch
+      });
+    };
+  };
+}
+
+/*
+* This is a dummy function to check if the function name has been altered by minification.
+* If the function has been minified and NODE_ENV !== 'production', warn the user.
+*/
+function isCrushed() {}
+
+if ("production" !== 'production' && typeof isCrushed.name === 'string' && isCrushed.name !== 'isCrushed') {
+  warning('You are currently using minified code outside of NODE_ENV === \'production\'. ' + 'This means that you are running a slower development build of Redux. ' + 'You can use loose-envify (https://github.com/zertosh/loose-envify) for browserify ' + 'or DefinePlugin for webpack (http://stackoverflow.com/questions/30030031) ' + 'to ensure you have the correct code for your production build.');
+}
+
+// Imports
+
+
+
+
+// Options
+const SET_OPTION = 'set-option';
+
+// Authentication
+const LOGIN = 'login';
+const LOGIN_SUCCESSFUL = 'login-successful';
+const LOGIN_FAILED = 'login-failed';
+
+const LOGOUT = 'logout';
+const LOGOUT_SUCCESSFUL = 'logout-successful';
+
+
+// Saving
+const SAVE = 'save';
+const SAVE_SUCCESSFUL = 'save-successful';
+const SAVE_FAILED = 'save-failed';
+
+// Data
+const FIND_DATA = 'find-data';
+const FIND_DATA_SUCCESSFUL = 'find-data-successful';
+
+
+const GET_DATA = 'get-data';
+const GET_DATA_SUCCESSFUL = 'get-data-successful';
+
+
+const SET_DATA = 'set-data';
+const SET_DATA_SUCCESSFUL = 'set-data-successful';
+const SET_DATA_FAILED = 'set-data-failed';
+
+const REMOVE_DATA = 'remove-data';
+const REMOVE_DATA_SUCCESSFUL = 'remove-data-successful';
+
+
+// Data + API
+const FIND_DATA_FROM_API = 'find-data-from-api';
+const FIND_DATA_FROM_API_SUCCESSFUL = 'find-data-from-api-successful';
+const FIND_DATA_FROM_API_FAILED = 'find-data-from-api-failed';
+
+const GET_DATA_FROM_API = 'get-data-from-api';
+const GET_DATA_FROM_API_SUCCESSFUL = 'get-data-from-api-successful';
+const GET_DATA_FROM_API_FAILED = 'get-data-from-api-failed';
+
+const SET_DATA_TO_API = 'set-data-to-api';
+const SET_DATA_TO_API_SUCCESSFUL = 'set-data-to-api-successful';
+const SET_DATA_TO_API_FAILED = 'set-data-to-api-failed';
+
+const REMOVE_DATA_FROM_API = 'remove-data-from-api';
+const REMOVE_DATA_FROM_API_SUCCESSFUL = 'remove-data-from-api-successful';
+const REMOVE_DATA_FROM_API_FAILED = 'remove-data-from-api-failed';
+
+// Editable
+const EDIT_ACTIVE = 'edit-active';
+const EDIT_INACTIVE = 'edit-inactive';
+
+// Querying
+const OBSERVE_QUERY = 'observe-query';
+
+function setOption(prop, value) {
+  return {
+    type: SET_OPTION,
+    prop,
+    value
+  };
+}
+
+function editActive() {
+  return {
+    type: EDIT_ACTIVE
+  };
+}
+
+function editInactive() {
+  return {
+    type: EDIT_INACTIVE
+  };
+}
+
+var index$3 = typeof fetch=='function' ? fetch : function(url, options) {
+	options = options || {};
+	return new Promise( function (resolve, reject) {
+		var request = new XMLHttpRequest();
+
+		request.open(options.method || 'get', url);
+
+		for (var i in options.headers) {
+			request.setRequestHeader(i, options.headers[i]);
+		}
+
+		request.withCredentials = options.credentials=='include';
+
+		request.onload = function () {
+			resolve(response());
+		};
+
+		request.onerror = reject;
+
+		request.send(options.body);
+
+		function response() {
+			var keys = [],
+				all = [],
+				headers = {},
+				header;
+
+			request.getAllResponseHeaders().replace(/^(.*?):\s*([\s\S]*?)$/gm, function (m, key, value) {
+				keys.push(key = key.toLowerCase());
+				all.push([key, value]);
+				header = headers[key];
+				headers[key] = header ? (header + "," + value) : value;
+			});
+
+			return {
+				ok: (request.status/200|0) == 1,		// 200-399
+				status: request.status,
+				statusText: request.statusText,
+				url: request.responseURL,
+				clone: response,
+				text: function () { return Promise.resolve(request.responseText); },
+				json: function () { return Promise.resolve(request.responseText).then(JSON.parse); },
+				xml: function () { return Promise.resolve(request.responseXML); },
+				blob: function () { return Promise.resolve(new Blob([request.response])); },
+				headers: {
+					keys: function () { return keys; },
+					entries: function () { return all; },
+					get: function (n) { return headers[n.toLowerCase()]; },
+					has: function (n) { return n.toLowerCase() in headers; }
+				}
+			};
+		}
+	});
+};
+
+// Doing this means that we're preferencing calling window.fetch always - which
+//  means if window.fetch is altered in future, this will use it. This helps for
+//  things like fetch-mock for mocking in tests
+var fetch$1 = (...args) => window.fetch ? window.fetch(...args) : index$3(...args);
+
+/**
+ * Check Status and request courtesy of feathers-rest
+ * See https://github.com/feathersjs/feathers-rest/blob/master/src/client/fetch.js
+ */
+function checkStatus(response) {
+  let rejectAsError;
+
+  if (response.ok) {
+    return response;
+  }
+
+  rejectAsError = (body = {}) => {
+    let code = body.code || response.status,
+        statusText = body.statusText || response.statusText,
+        error = new Error(statusText);
+
+    error.code = code;
+    error.statusText = statusText;
+
+    return Promise.reject(error);
+  };
+
+  return Promise.resolve()
+    .then(() => response.json())
+    .then(
+      (body) => rejectAsError(body),
+      () => rejectAsError({ code: response.status, statusText: response.statusText })
+    );
+}
+
+function request(options) {
+  let fetchOptions = Object.assign({}, options);
+
+  fetchOptions.headers = Object.assign({
+    Accept: 'application/json',
+  }, fetchOptions.headers);
+
+  if (options.body) {
+    fetchOptions.body = JSON.stringify(options.body);
+    fetchOptions.headers = Object.assign({
+      'Content-Type': 'application/json'
+    }, fetchOptions.headers);
+  }
+
+  return fetch$1(options.url, fetchOptions)
+      .then(checkStatus)
+      .then(response => response.status === 204 ? null : response.json());
+}
+
+function requestWithToken(options) {
+  let token = options.token;
+
+  if (token) {
+    options.headers = Object.assign({
+      'Authorization': `Bearer ${token}`
+    }, options.headers);
+  }
+
+  return request(options);
+}
+
+var client = {
+  get(url, options) {
+    return request(Object.assign({ method: 'GET' }, options, { url }));
+  },
+
+  post(url, options) {
+    return requestWithToken(Object.assign({ method: 'POST' }, options, { url }));
+  },
+
+  put(url, options) {
+    return requestWithToken(Object.assign({ method: 'PUT' }, options, { url }));
+  },
+
+  delete(url, options) {
+    return requestWithToken(Object.assign({ method: 'DELETE' }, options, { url }));
+  }
+};
+
+function syncLogin({ email, password }) {
+  return {
+    type: LOGIN,
+    email,
+    password
+  };
+}
+
+function loginSuccessful(token) {
+  return {
+    type: LOGIN_SUCCESSFUL,
+    response: token
+  };
+}
+
+function loginFailed(error) {
+  return {
+    type: LOGIN_FAILED,
+    response: error
+  };
+}
+
+function login({ email, password }) {
+  return (dispatch, getState) => {
+    let { authEndpoint } = getState().config;
+
+    dispatch(syncLogin({ email, password }));
+
+    return client.post(`${authEndpoint}/login`, {
+      body: { email, password }
+    })
+    .then(
+      success => dispatch(loginSuccessful(success.token)),
+      error => dispatch(loginFailed(error))
+    );
+  }
+}
+
+function syncLogout() {
+  return {
+    type: LOGOUT
+  };
+}
+
+function logoutSuccessful() {
+  return {
+    type: LOGOUT_SUCCESSFUL
+  };
+}
+
+
+
+function logout() {
+  return (dispatch) => {
+    dispatch(syncLogout());
+    return Promise.resolve().then(() => dispatch(logoutSuccessful()));
+  }
+}
+
+const INVALID_DATA = 'Invalid content: only type and data properties are allowed';
+
+const DATA_PREFIX = '_data';
+const QUERIES_PREFIX = '_queries';
+
+function selectPropByPath(path, obj) {
+  let selector,
+      numberSelector;
+
+  if (typeof obj === 'undefined') {
+    return obj;
+  }
+
+  if (typeof path === 'string') {
+    return selectPropByPath(path.split('.'), obj);
+  }
+
+  selector = path[0];
+  numberSelector = parseInt(selector);
+
+  if (!isNaN(numberSelector)) {
+    selector = numberSelector;
+  }
+
+  if (path.length === 0) {
+    return obj;
+  }
+
+  return selectPropByPath(path.slice(1), obj[selector]);
+}
+
+function selectDataFromState(uid, state) {
+  let dataState = state[DATA_PREFIX],
+      data;
+
+  if (dataState) {
+    data = dataState.content[uid];
+  }
+
+  return data;
+}
+
+function uidsToResponse(uids, state) {
+  let { content } = state[DATA_PREFIX];
+
+  return {
+    items: uids.map(uid => content[uid])
+  };
+}
+
+function findDataInState(query, state) {
+  let dataState = state[DATA_PREFIX],
+      uids = [],
+      content,
+      hierarchy;
+
+  if (!dataState) {
+    return { items: [] };
+  }
+
+  ({ content, hierarchy } = dataState);
+
+  // Parent filter
+  if (query.parent) {
+    let childObject = selectPropByPath(query.parent, hierarchy);
+
+    if (childObject) {
+      uids = Object.keys(childObject)
+        .map(id => `${query.parent}.${id}`);
+    }
+  } else {
+    uids = Object.keys(content);
+  }
+
+  return uidsToResponse(uids, state);
+}
+
+function storeToObserver(store) {
+  return {
+    observe(...args) {
+      let onChange = args.pop(),
+          selector = args[0],
+          lastState,
+          getState,
+          handleChange;
+
+      getState = () => {
+        return selector ? selectPropByPath(selector, store.getState()) : store.getState();
+      };
+
+      lastState = getState();
+      handleChange = () => {
+        let currentState = getState();
+        if (currentState !== lastState) {
+          let args = [ currentState, lastState ];
+          lastState = currentState;
+          onChange(...args);
+        }
+      };
+
+      return {
+        unobserve: store.subscribe(handleChange)
+      };
+    }
+  }
+}
+
+function matchesQuery(query = {}, content) {
+  if (typeof content === 'undefined' || content === null) {
+    return false;
+  }
+
+  if (query.parent) {
+    return content.id !== query.parent && content.id.indexOf(query.parent) === 0;
+  }
+
+  if (Object.keys(query).length === 0) {
+    return true;
+  }
+
+  return false;
+}
+
+function ensureActionMatches(expectedType) {
+  return (action) => {
+    return action.type === expectedType ? Promise.resolve(action) : Promise.reject(action);
+  }
+}
+
+function runDispatchAndExpect(dispatch, action, expectedType) {
+  const isAction = (response) => typeof response.type !== 'undefined' && typeof response.response !== 'undefined';
+
+  return dispatch(action)
+    .then(ensureActionMatches(expectedType))
+    .then(
+      action => action.response,
+      action => isAction(action) ? Promise.reject(action.response) : Promise.reject(action)
+    );
+}
+
+function dispatchThunkAndExpect(store, ...args) {
+  return runDispatchAndExpect(store.dispatch, ...args);
+}
+
+/**
+ * Clone's the given object using JSON.parse(JSON.stringify(...));
+ * @param  {Object} object Object should be JSON compatible
+ * @return {Object}        Clone of given object
+ */
+function clone(object) {
+  return JSON.parse(JSON.stringify(object));
+}
+
+function dataIsValid(data) {
+  let whitelist = [ 'type', 'data' ],
+      props = Object.keys(data || {});
+
+  if (props.length === 0) {
+    return false;
+  }
+
+  return props.every(prop => whitelist.indexOf(prop) !== -1);
+}
+
+function toQueryParams(query = {}) {
+  // Sort alphabetically, so that when caching it will always be the same key
+  let alphabetically = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+
+  return Object.keys(query)
+    .sort(alphabetically)
+    .reduce((working, param) => {
+      let value = query[param],
+          prefix;
+
+      if (!working) {
+        prefix = '?';
+      } else {
+        prefix = `${working}&`;
+      }
+
+      return `${prefix}${param}=${encodeURIComponent(value)}`;
+    }, '');
+}
+
+function hasRunQuery(query, state) {
+  const queryState = state[QUERIES_PREFIX],
+        queryParams = toQueryParams(query);
+  return !!(queryState && queryState[queryParams] && queryState[queryParams].queriedRemote);
+}
+
+function makeBlankItem() {
+  return {
+    type: null,
+    data: null
+  };
+}
+
+function makeItemWith(uid, item) {
+  if (item === null) {
+    return null
+  }
+
+  return Object.assign(clone(item), { id: uid });
+}
+
+function pathToUid(path) {
+  if (!path) {
+    return path;
+  }
+
+  path = path.replace(/^\/+/, '').replace(/\/+$/, '');
+
+  return path.split('/').join('.');
+}
+
+function uidToPath(uid) {
+  if (!uid) {
+    return uid;
+  }
+
+  // Normalize so there's always a leading /
+  if (uid.charAt(0) !== '.') {
+    uid = `.${uid}`;
+  }
+
+  return uid.split('.').join('/');
+}
+
+function itemUidToPath(item) {
+  let path,
+      transformed;
+
+  if (!item) {
+    return item;
+  }
+
+  path = uidToPath(item.id);
+  transformed = Object.assign({}, item, { path });
+  delete transformed.id;
+
+  return transformed;
+}
+
+function queryResultsToPath(results) {
+  let items;
+
+  if (!results) {
+    return results;
+  }
+
+  items = results.items.map(itemUidToPath);
+
+  return Object.assign({}, results, { items });
+}
+
+function validatePath(path) {
+  if (path.charAt(0) !== '/') {
+    throw new Error(`Invalid path ${path}. Path must be a string starting with '/'`);
+  }
+
+  if (path.indexOf('//') !== -1) {
+    throw new Error(`Invalid path '${path}'. Paths must not have more than one '/' in a row.`);
+  }
+}
+
+/**
+ * Check if uid is invalid. If invalid, returns message why, otherwise returns
+ * 	false
+ * @param  {String} uid
+ * @return {Boolean}
+ */
+function isInvalid(uid) {
+  if (typeof uid !== 'undefined' && uid === '') {
+    return 'Invalid UID: Empty string is not a valid UID';
+  }
+}
+
+function formatAndRun({ uid = '', validateUid = true, query, endpoint: dataEndpoint, token, method, body }) {
+  const endpoint = `${dataEndpoint}/${encodeURIComponent(uid)}${toQueryParams(query)}`,
+        invalid = isInvalid(uid);
+
+  if (validateUid && invalid) {
+    return Promise.reject(new Error(invalid));
+  }
+
+  return client[method](endpoint, {
+    body,
+    token
+  });
+}
+
+function generateHandler(method, paramsToObj, [ start, success, fail ], validateUid) {
+  return (...args) => (dispatch, getState) => {
+    let { config, token } = getState(),
+        endpoint = config.dataEndpoint,
+        options;
+
+    options = Object.assign({ method, endpoint, token, validateUid }, paramsToObj(...args));
+
+    dispatch(start(...args));
+    return formatAndRun(options)
+      .then(
+        response => dispatch(success(...args, response)),
+        error => dispatch(fail(...args, error))
+      );
+  };
+}
+
+const findData$1 = (query) => ({ type: FIND_DATA_FROM_API, query });
+const findDataSuccessful$1 = (query, response) => ({ type: FIND_DATA_FROM_API_SUCCESSFUL, query, response });
+const findDataFailed = (query, response) => ({ type: FIND_DATA_FROM_API_FAILED, query, response });
+
+const getData$1 = (uid) => ({ type: GET_DATA_FROM_API, uid });
+const getDataSuccessful$1 = (uid, response) => ({ type: GET_DATA_FROM_API_SUCCESSFUL, uid, response });
+const getDataFailed = (uid, response) => ({ type:  GET_DATA_FROM_API_FAILED, uid, response });
+
+const setData$1 = (uid, body) => ({ type: SET_DATA_TO_API, uid, body });
+const setDataSuccessful$1 = (uid, body, response) => ({ type: SET_DATA_TO_API_SUCCESSFUL, uid, body, response });
+const setDataFailed$1 = (uid, body, response) => ({ type:  SET_DATA_TO_API_FAILED, uid, body, response });
+
+const removeData$1 = (uid) => ({ type: REMOVE_DATA_FROM_API, uid });
+const removeDataSuccessful$1 = (uid, response) => ({ type: REMOVE_DATA_FROM_API_SUCCESSFUL, uid, response });
+const removeDataFailed = (uid, response) => ({ type:  REMOVE_DATA_FROM_API_FAILED, uid, response });
+
+const get$1 = generateHandler('get', (uid) => ({ uid }), [ getData$1, getDataSuccessful$1, getDataFailed ]);
+const set$1 = generateHandler('put', (uid, body) => ({ uid, body }), [ setData$1, setDataSuccessful$1, setDataFailed$1 ]);
+const remove$1 = generateHandler('delete', (uid) => ({ uid }), [ removeData$1, removeDataSuccessful$1, removeDataFailed ]);
+const find$1 = generateHandler('get', (query) => ({ query }), [ findData$1, findDataSuccessful$1, findDataFailed ], false);
+
+function findData$$1(query) {
+  return {
+    type: FIND_DATA,
+    query
+  };
+}
+
+function findDataSuccessful$$1(query, response) {
+  return {
+    type: FIND_DATA_SUCCESSFUL,
+    query,
+    response
+  };
+}
+
+function getData$$1(uid) {
+  return {
+    type: GET_DATA,
+    uid
+  };
+}
+
+function getDataSuccessful$$1(uid, response) {
+  return {
+    type: GET_DATA_SUCCESSFUL,
+    response,
+    uid
+  }
+}
+
+function setData$$1(uid, data) {
+  return {
+    type: SET_DATA,
+    uid,
+    data
+  };
+}
+
+function setDataSuccessful$$1(uid, response, options = {}) {
+  options = Object.assign({ persist: true }, options);
+  let { persist } = options;
+
+  return {
+    type: SET_DATA_SUCCESSFUL,
+    response: makeItemWith(uid, response),
+    uid,
+    persist
+  };
+}
+
+function setDataFailed$$1(uid, error) {
+  return {
+    type: SET_DATA_FAILED,
+    response: error,
+    uid
+  };
+}
+
+function removeData$$1(uid) {
+  return {
+    type: REMOVE_DATA,
+    uid
+  };
+}
+
+function removeDataSuccessful$$1(uid, options = {}) {
+  options = Object.assign({ persist: true }, options);
+  let { persist } = options;
+
+  return {
+    type: REMOVE_DATA_SUCCESSFUL,
+    uid,
+    persist
+  };
+}
+
+function set$$1(uid, data, options = {}) {
+  options = Object.assign({
+    validate: true,
+    createAncestry: true,
+    persist: true
+  }, options);
+
+  let { validate, createAncestry, persist } = options;
+
+  return (dispatch, getState) => {
+    function ensureParentExists(child) {
+      let parent = child.split('.').slice(0, -1).join('.');
+
+      if (!parent || selectDataFromState(parent, getState())) {
+        return Promise.resolve();
+      }
+
+      return runDispatchAndExpect(
+        dispatch,
+        set$$1(parent, makeBlankItem(parent), { persist: false }),
+        SET_DATA_SUCCESSFUL
+      );
+    }
+
+    let action;
+
+    dispatch(setData$$1(uid, data));
+
+    if (validate && !dataIsValid(data)) {
+      action = setDataFailed$$1(uid, new Error(INVALID_DATA));
+    } else {
+      let currentData = selectDataFromState(uid, getState());
+
+      data = Object.assign({}, currentData, data);
+
+      action = setDataSuccessful$$1(uid, data, { persist });
+    }
+
+    return (createAncestry ? ensureParentExists(uid) : Promise.resolve())
+      .then(() => dispatch(action));
+  };
+}
+
+function remove$$1(uid, options = {}) {
+  options = Object.assign({ persist: true }, options);
+  let { persist } = options;
+
+  return (dispatch, getState) => {
+    function removeChildren(uid) {
+      if (!uid) {
+        return Promise.resolve();
+      }
+
+      let { items } = findDataInState({ parent: uid }, getState()),
+          removeItem = item => {
+            return runDispatchAndExpect(
+              dispatch,
+              remove$$1(item.id, { persist: false }),
+              REMOVE_DATA_SUCCESSFUL
+            );
+          };
+
+      return Promise.all(items.map(removeItem));
+    }
+
+    dispatch(removeData$$1(uid));
+
+    return removeChildren(uid)
+      .then(() => dispatch(removeDataSuccessful$$1(uid, { persist })));
+  };
+}
+
+function get$$1(uid) {
+  return (dispatch, getState) => {
+    let state,
+        stored,
+        fetchData;
+
+    dispatch(getData$$1(uid));
+
+    state = getState();
+    stored = selectDataFromState(uid, state);
+
+    if (typeof stored === 'undefined') {
+      fetchData = runDispatchAndExpect(
+          dispatch,
+          get$1(uid),
+          GET_DATA_FROM_API_SUCCESSFUL
+        ).then((response) => {
+          return runDispatchAndExpect(
+            dispatch,
+            set$$1(uid, response, { validate: false, createAncestry: false }),
+            SET_DATA_SUCCESSFUL
+          )
+        });
+    } else {
+      fetchData = Promise.resolve(stored);
+    }
+
+    return fetchData
+      .then((response) => dispatch(getDataSuccessful$$1(uid, response)));
+  };
+}
+
+function find$$1(query = {}) {
+  return (dispatch, getState) => {
+    let storeResponse,
+        storeItemInState,
+        findLocallyAndReturn;
+
+    dispatch(findData$$1(query));
+
+    storeItemInState = (item) => {
+      return runDispatchAndExpect(
+        dispatch,
+        set$$1(item.id, item, { validate: false }),
+        SET_DATA_SUCCESSFUL
+      );
+    };
+
+    storeResponse = (response) => {
+      let state = getState(),
+          itemNotInState = ({ id }) => typeof selectDataFromState(id, state) === 'undefined';
+
+      return Promise.all(
+        response.items
+          .filter(itemNotInState)
+          .map(storeItemInState)
+      );
+    };
+
+    findLocallyAndReturn = () => {
+      return Promise.resolve()
+        .then(() => findDataInState(query, getState()))
+        .then(response => dispatch(findDataSuccessful$$1(query, response)));
+    };
+
+    if (hasRunQuery(query, getState())) {
+      return findLocallyAndReturn();
+    }
+
+    return runDispatchAndExpect(dispatch, find$1(query), FIND_DATA_FROM_API_SUCCESSFUL)
+      .then(storeResponse)
+      .then(findLocallyAndReturn);
+  };
+}
+
+function observeQuery(query) {
+  return {
+    type: OBSERVE_QUERY,
+    query
+  };
+}
+
+function startSave() {
+  return {
+    type: SAVE
+  };
+}
+
+function saveSuccessful() {
+  return {
+    type: SAVE_SUCCESSFUL
+  };
+}
+
+function saveFailed() {
+  return {
+    type: SAVE_FAILED
+  };
+}
+
+function save() {
+  return (dispatch, getState) => {
+    let saveResultLocally,
+        shouldRemove,
+        shouldSet,
+        setPromises,
+        removePromises;
+
+    dispatch(startSave());
+
+    const saveState = getState().save,
+          entries = Object.keys(saveState).map(uid => [ uid, saveState[uid] ]);
+
+    shouldRemove = ([, { local, changed }]) => local === null && changed;
+    shouldSet = ([, { local, changed }]) => local !== null && changed;
+
+    saveResultLocally = (result) => {
+      return runDispatchAndExpect(
+        dispatch,
+        set$$1(result.id, result, { validate: false }),
+        SET_DATA_SUCCESSFUL
+      );
+    };
+
+    setPromises = entries
+      .filter(shouldSet)
+      .map(([ uid, { local } ]) => set$1(uid, local))
+      .map(action => {
+        return runDispatchAndExpect(dispatch, action, SET_DATA_TO_API_SUCCESSFUL)
+          .then(saveResultLocally);
+      });
+
+    removePromises = entries
+      .filter(shouldRemove)
+      .map(([ uid ]) => remove$1(uid))
+      .map(action => runDispatchAndExpect(dispatch, action, REMOVE_DATA_FROM_API_SUCCESSFUL));
+
+    return Promise.all([ ...setPromises, ...removePromises ])
+      .then(
+        () => dispatch(saveSuccessful()),
+        () => dispatch(saveFailed())
+      )
+  };
+}
+
+const AUTH_SERVER = 'https://api.simpla.io';
+
+/**
+ * Configure Polymer with dom = shadow, unless Polymer is already defined
+ * @return {undefined}
+ */
+function configurePolymer() {
+  window.Polymer = window.Polymer || { dom: 'shadow' };
+}
+
+var ping = function(Simpla) {
+  let observer,
+      tryPing;
+
+  tryPing = ({ authEndpoint, project }) => {
+    if (authEndpoint && project) {
+      fetch$1(`${authEndpoint}/projects/${project}/sessions`, { method: 'POST' });
+      observer && observer.unobserve();
+      return true;
+    }
+
+    return false;
+  };
+
+  if (!tryPing(Simpla.getState('config'))) {
+    observer = Simpla.observeState('config', tryPing);
+  }
+};
+
+const TOKEN_KEY = 'simpla-token';
+
+const TOKEN_ISSUER = 'https://simpla.auth0.com/';
+const WARN_NO_SET = 'Could not remember login token. Are you in Private Mode?';
+const WARN_NO_READ = 'Could not load login token from storage. Are you in Private Mode?';
+const WARN_NO_REMOVE = 'Could not logout. Are you in Private Mode?';
+const WARN_INVALID = 'Invalid token';
+
+function tokenIsValid(token) {
+  const now = (new Date()).getTime() / 1000;
+  let payload;
+
+  if (!token) {
+    return false;
+  }
+
+  try {
+    let [, payloadString, ] = token.split('.');
+    payload = JSON.parse(atob(payloadString));
+  } catch (e) {
+    console.warn(WARN_INVALID, e.message);
+    return false;
+  }
+
+  // Check if payload has expired
+  if (payload.exp && now > payload.exp) {
+    return false;
+  }
+
+  // Check to see if issuer
+  if (!payload.iss || payload.iss !== TOKEN_ISSUER) {
+    return false;
+  }
+
+  return true;
+}
+
+function setTokenToStorage(token) {
+  if (token) {
+    try {
+      window.localStorage.setItem(TOKEN_KEY, token);
+    } catch (e) {
+      console.warn(WARN_NO_SET);
+    }
+  } else {
+    try {
+      window.localStorage.removeItem(TOKEN_KEY);
+    } catch (e) {
+      console.warn(WARN_NO_REMOVE);
+    }
+  }
+}
+
+function readTokenFromStorage(Simpla) {
+  let tokenInStorage;
+
+  try {
+    tokenInStorage = window.localStorage.getItem(TOKEN_KEY);
+  } catch (e) {
+    tokenInStorage = false;
+    console.log(WARN_NO_READ);
+  }
+
+  if (tokenIsValid(tokenInStorage)) {
+    // WARNING: This is private and should be removed in future
+    Simpla._store.dispatch(loginSuccessful(tokenInStorage));
+  } else {
+    try {
+      window.localStorage.removeItem(TOKEN_KEY);
+    } catch (e) {
+      console.warn(WARN_NO_REMOVE);
+    }
+  }
+}
+
+var persistToken = function(Simpla) {
+  readTokenFromStorage(Simpla);
+  Simpla.observeState('token', setTokenToStorage);
+};
+
+var index$4 = createCommonjsModule(function (module, exports) {
+'use strict';
+
+exports.__esModule = true;
+function createThunkMiddleware(extraArgument) {
+  return function (_ref) {
+    var dispatch = _ref.dispatch,
+        getState = _ref.getState;
+    return function (next) {
+      return function (action) {
+        if (typeof action === 'function') {
+          return action(dispatch, getState, extraArgument);
+        }
+
+        return next(action);
+      };
+    };
+  };
+}
+
+var thunk = createThunkMiddleware();
+thunk.withExtraArgument = createThunkMiddleware;
+
+exports['default'] = thunk;
+});
+
+var thunk = unwrapExports(index$4);
+
+function authenticated(state = false, action) {
+  switch (action.type) {
+  case LOGIN_SUCCESSFUL:
+    return true;
+  case LOGOUT_SUCCESSFUL:
+    return false;
+  default:
+    return state;
+  }
+}
+
+function options(state = {}, action) {
+  switch (action.type) {
+  case SET_OPTION:
+    return Object.assign({}, state, {
+      [ action.prop ]: action.value
+    });
+  default:
+    return state;
+  }
+}
+
+function updateStateWithQuery(state, queryString, updates) {
+  return Object.assign({}, state, {
+    [ queryString ]: Object.assign({}, state[queryString], updates)
+  });
+}
+
+const notAlreadyIn = haystack => needle => haystack.indexOf(needle) === -1;
+const isNot = a => b => a !== b;
+
+function queries(state = {}, action) {
+  let queryString;
+
+  switch (action.type) {
+  case FIND_DATA:
+    queryString = toQueryParams(action.query);
+
+    if (!state[queryString]) {
+      return updateStateWithQuery(state, queryString, {
+        query: action.query,
+        querying: true,
+        queriedRemote: false,
+        cache: [],
+        matches: []
+      });
+    }
+
+    if (!state[queryString].querying) {
+      return updateStateWithQuery(state, queryString, { querying: true });
+    }
+
+    return state;
+  case FIND_DATA_SUCCESSFUL:
+    queryString = toQueryParams(action.query);
+
+    if (state[queryString].cache.length !== 0) {
+      let { matches, cache } = state[queryString],
+          updatedMatches;
+
+      updatedMatches = [
+        ...matches,
+        ...cache.filter(notAlreadyIn(matches))
+      ];
+
+      if (updatedMatches.length !== matches.length) {
+        return updateStateWithQuery(state, queryString, {
+          querying: false,
+          cache: [],
+          matches: updatedMatches
+        });
+      }
+    }
+
+    return updateStateWithQuery(state, queryString, { cache: [], querying: false });
+  case FIND_DATA_FROM_API_SUCCESSFUL:
+    queryString = toQueryParams(action.query);
+
+    if (!state[queryString].queriedRemote) {
+      return updateStateWithQuery(state, queryString, { queriedRemote: true });
+    }
+
+    return state;
+  case OBSERVE_QUERY:
+    queryString = toQueryParams(action.query);
+
+    if (!state[queryString]) {
+      return updateStateWithQuery(state, queryString, {
+        query: action.query,
+        querying: false,
+        queriedRemote: false,
+        cache: [],
+        matches: []
+      });
+    }
+
+    return state;
+  case SET_DATA_SUCCESSFUL:
+    return Object.keys(state)
+      .reduce((state, queryString) => {
+        let { query, matches, cache, querying } = state[queryString],
+            { response, uid } = action,
+            current = querying ? cache : matches,
+            updated;
+
+        if (!matchesQuery(query, response)) {
+          updated = current.filter(isNot(uid));
+        } else {
+          updated = [ ...current, uid ];
+        }
+
+        if (updated.length !== current.length) {
+          return updateStateWithQuery(state, queryString, {
+            [ querying ? 'cache' : 'matches' ]: updated
+          });
+        }
+
+        return state;
+      }, state);
+  case REMOVE_DATA_SUCCESSFUL:
+    return Object.keys(state)
+      .reduce((state, queryString) => {
+        let { matches } = state[queryString],
+            { uid } = action,
+            updatedMatches;
+
+        updatedMatches = matches.filter(isNot(uid));
+
+        if (updatedMatches !== matches.length) {
+          return updateStateWithQuery(state, queryString, {
+            matches: updatedMatches
+          });
+        }
+
+        return state;
+      }, state);
+  default:
+    return state;
+  }
+}
+
+const INITIAL_STATE = false;
+
+function editable(state = INITIAL_STATE, action) {
+  switch (action.type) {
+  case EDIT_ACTIVE:
+    return true;
+  case EDIT_INACTIVE:
+    return false;
+  default:
+    return state;
+  }
+}
+
+function equal(subjectA, subjectB) {
+  return JSON.stringify(subjectA) === JSON.stringify(subjectB);
+}
+
+function markAt(state, path) {
+  let key = path[0],
+      value = path.length === 1 ? {} : markAt(state[key] || {}, path.slice(1));
+
+  return Object.assign({}, state, { [key]: value });
+}
+
+function pruneAt(state, path) {
+  let key = path[0];
+
+  if (path.length === 1) {
+    let newState = Object.assign({}, state);
+    delete newState[key];
+    return newState;
+  }
+
+  if (state.hasOwnProperty(key)) {
+    return Object.assign({}, state, { [key]: pruneAt(state[key], path.slice(1)) });
+  }
+
+  return state;
+}
+
+function hierarchy(state = {}, action) {
+  switch (action.type) {
+  case SET_DATA_SUCCESSFUL:
+    return markAt(state, action.uid.split('.'), {});
+  case REMOVE_DATA_SUCCESSFUL:
+    return pruneAt(state, action.uid.split('.'));
+  default:
+    return state;
+  }
+}
+
+function content(state = {}, action) {
+  switch (action.type) {
+  case SET_DATA_SUCCESSFUL:
+    let currentContent = state[action.uid],
+        newContent = clone(action.response);
+
+    if (equal(currentContent, newContent)) {
+      return state;
+    }
+
+    return Object.assign({}, state, { [ action.uid ]: clone(action.response) });
+  case REMOVE_DATA_SUCCESSFUL:
+    if (state[action.uid] === null) {
+      return state;
+    }
+
+    return Object.assign({}, state, { [ action.uid ]: null });
+  default:
+    return state;
+  }
+}
+
+var data = combineReducers({ hierarchy, content });
+
+function token(state = null, action) {
+  switch (action.type) {
+  case LOGIN_SUCCESSFUL:
+    return action.response;
+  case LOGOUT:
+    return null;
+  default:
+    return state;
+  }
+}
+
+/**
+ * Check if two object are different. Uses JSON stringify to check
+ *  whether they've changed.
+ * NOTE: May be a perf issue thanks to JSON.stringify, worth investigating
+ * @param  {Object}  remote Object on remote state
+ * @param  {Object}  local  Object on local state
+ * @return {Boolean}        True if they are different, false otherwise
+ */
+function isDifferent(remote, local) {
+  let remoteAsString = JSON.stringify(remote),
+      localAsString = JSON.stringify(local);
+
+  return remoteAsString !== localAsString;
+}
+
+/**
+ * Reduce state of individual UID
+ * @param  {Object}   [state={}] State of save info at UID
+ * @param  {Object}   data       Incoming data for the item at UID
+ * @param  {Boolean}  isRemote   Whether data is remote data or local if not
+ * @return {Object}
+ */
+function reducePart(state = {}, data, isRemote) {
+  let { local, remote, changed } = state;
+
+  if (isRemote) {
+    remote = clone(data || null);
+  } else {
+    local = clone(data || null);
+  }
+
+  changed = isDifferent(remote, local);
+
+  return Object.assign({}, state, { local, remote, changed });
+}
+
+/**
+ * Save Reducer
+ * @param  {Object} [state={}] Current state
+ * @param  {Object} action       Action to apply to state
+ * @return {Object}              New state
+ */
+function save$1(state = {}, action) {
+  let updatePart,
+      updateLocal,
+      updateRemote;
+
+  updatePart = (remote) => (whole, id, data) => {
+    let oldSubstate = whole[id],
+        newSubstate = reducePart(whole[id], data, remote);
+
+    return oldSubstate === newSubstate ? state : Object.assign({}, whole, { [ id ]: newSubstate });
+  };
+
+  updateLocal = updatePart(false);
+  updateRemote = updatePart(true);
+
+  switch (action.type) {
+  case FIND_DATA_FROM_API_SUCCESSFUL:
+    return action.response.items.reduce((whole, item) => {
+      return updateRemote(whole, item.id, item);
+    }, state);
+  case GET_DATA_FROM_API_SUCCESSFUL:
+  case SET_DATA_TO_API_SUCCESSFUL:
+    return updateRemote(state, action.uid, action.response);
+  case REMOVE_DATA_FROM_API_SUCCESSFUL:
+    return updateRemote(state, action.uid, null);
+  case SET_DATA_SUCCESSFUL:
+    if (!action.persist) {
+      return state;
+    }
+
+    return updateLocal(state, action.uid, action.response);
+  case REMOVE_DATA_SUCCESSFUL:
+    if (!action.persist) {
+      let purged = Object.assign({}, state);
+      delete purged[action.uid];
+      return purged;
+    }
+
+    return updateLocal(state, action.uid, action.response);
+  default:
+    return state;
+  }
+}
+
+const reducer = combineReducers({
+  [ DATA_PREFIX ]: data,
+  [ QUERIES_PREFIX ]: queries,
+  authenticated,
+  config: options,
+  editable,
+  token,
+  save: save$1
+});
+
+// Setup Polymer configuration
+configurePolymer();
+
+const Simpla = new class Simpla {
+  constructor() {
+    const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
+    this._store = createStore(reducer, composeEnhancers(applyMiddleware(thunk)));
+  }
+
+  init(project) {
+    this._store.dispatch(setOption('project', project));
+
+    // Initialize endpoints
+    this._store.dispatch(setOption('authEndpoint', AUTH_SERVER));
+    this._store.dispatch(setOption('dataEndpoint', `${AUTH_SERVER}/projects/${project}/content`));
+  }
+
+  // Authentication
+  login(...args) {
+    return dispatchThunkAndExpect(this._store, login(...args), LOGIN_SUCCESSFUL);
+  }
+
+  logout(...args) {
+    return dispatchThunkAndExpect(this._store, logout(...args), LOGOUT_SUCCESSFUL);
+  }
+
+  // Data
+  find(options = {}) {
+    let parentPath = options.parent;
+    options.parent = pathToUid(parentPath);
+    return Promise.resolve()
+      .then(() => validatePath(parentPath))
+      .then(() => dispatchThunkAndExpect(
+        this._store,
+        find$$1(options),
+        FIND_DATA_SUCCESSFUL
+      ))
+      .then(queryResultsToPath);
+  }
+
+  get(path, ...args) {
+    const uid = pathToUid(path);
+    return Promise.resolve()
+      .then(() => validatePath(path))
+      .then(() => dispatchThunkAndExpect(
+        this._store,
+        get$$1(uid, ...args),
+        GET_DATA_SUCCESSFUL
+      ))
+      .then(itemUidToPath);
+  }
+
+  set(path, ...args) {
+    const uid = pathToUid(path);
+    return Promise.resolve()
+      .then(() => validatePath(path))
+      .then(() => dispatchThunkAndExpect(
+        this._store,
+        set$$1(uid, ...args),
+        SET_DATA_SUCCESSFUL
+      ))
+      .then(itemUidToPath);
+  }
+
+  remove(path, ...args) {
+    const uid = pathToUid(path);
+    return Promise.resolve()
+      .then(() => validatePath(path))
+      .then(() => dispatchThunkAndExpect(
+        this._store,
+        remove$$1(uid, ...args),
+        REMOVE_DATA_SUCCESSFUL
+      ))
+      .then(itemUidToPath);
+  }
+
+  observe(path, ...args) {
+    let callback = args.pop(),
+        uid = pathToUid(path),
+        pathInState,
+        wrappedCallback;
+
+    if (!uid) {
+      throw new Error('Observe must be given a valid path');
+    }
+
+    validatePath(path);
+
+    pathInState = [ DATA_PREFIX, 'content', uid ];
+    wrappedCallback = () => this.get(path).then(callback);
+
+    return storeToObserver(this._store).observe(pathInState, wrappedCallback);
+  }
+
+  observeQuery(query, callback) {
+    let queryString,
+        pathInStore,
+        wrappedCallback;
+
+    query.parent = pathToUid(query.parent);
+    queryString = toQueryParams(query);
+    pathInStore = [ QUERIES_PREFIX, queryString, 'matches' ];
+
+    this._store.dispatch(observeQuery(query));
+
+    wrappedCallback = (uids) => {
+      return callback(
+        queryResultsToPath(
+          uidsToResponse(uids, this.getState())
+        )
+      );
+    };
+
+    return storeToObserver(this._store).observe(pathInStore, wrappedCallback);
+  }
+
+  save(...args) {
+    return dispatchThunkAndExpect(this._store, save(...args), SAVE_SUCCESSFUL);
+  }
+
+  // Editable
+  editable(on) {
+    this._store.dispatch(on ? editActive() : editInactive());
+  }
+
+  // State
+  getState(path) {
+    let state = this._store.getState();
+    return path ? selectPropByPath(path, state) : state;
+  }
+
+  observeState(...args) {
+    return storeToObserver(this._store).observe(...args);
+  }
+};
+
+// Init plugins
+const plugins = [
+  ping,
+  persistToken
+];
+
+plugins.forEach(plugin => plugin(Simpla));
+
+// Setup Simpla
+Simpla.init('demo');
+window.Simpla = Simpla;
+
+Polymer({
+  is: 'simpla-demo-helper',
+
+  properties: {
+
+    editable: {
+      type: Boolean,
+      observer: '_updateEditable'
+    }
+
+  },
+
+  _updateEditable: function _updateEditable(editable) {
+    Simpla.editable(editable);
+  }
+});
+
+}()); </script> </dom-module> 

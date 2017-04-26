@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>simpla-demo-helper</title>
+    <script src="../../webcomponentsjs/webcomponents.min.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <!-- Import the element to test -->
+    <link rel="import" href="../simpla-demo-helper.html">
+
+  </head>
+  <body>
+    <test-fixture id="default">
+      <template>
+        <simpla-demo-helper></simpla-demo-helper>
+      </template>
+    </test-fixture>
+    <script>
+      describe('<simpla-demo-helper>', function() {
+        var component;
+
+        beforeEach(function() {
+          component = fixture('default');
+        });
+
+        it('is okay', function() {
+          expect(component).to.be.ok;
+        });
+
+        it('loads Simpla', function() {
+          expect(window.Simpla).to.be.ok;
+        });
+
+        it('toggles edit mode when editable changes', function() {
+          component.editable = true;
+          expect(Simpla.getState('editable')).to.equal(true);
+        });
+      });
+    </script>
+  </body>
+</html>

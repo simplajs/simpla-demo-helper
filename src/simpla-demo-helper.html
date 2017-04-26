@@ -1,0 +1,75 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../paper-toggle-button/paper-toggle-button.html">
+<link rel="import" href="../simpla-styles/colors.html">
+
+<dom-module id="simpla-demo-helper">
+  <template>
+    <style>
+      :host, *, *::before, *::after {
+        box-sizing: border-box;
+      }
+
+      .wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.25rem;
+        border: 1px solid var(--simpla-grey-100);
+        background: var(--simpla-grey-50);
+        border-radius: 3px;
+        -moz-osx-font-smoothing: grayscale;
+         -webkit-font-smoothing: antialiased;
+                 font-smoothing: antialiased;
+      }
+
+      .label {
+        font-family: sans-serif;
+        font-size: 0.9em;
+        font-weight: 600;
+        color: var(--simpla-grey-700);
+      }
+
+      .toggle {
+        --primary-color: var(--simpla-primary-color);
+        --paper-toggle-button-unchecked-button-color: white;
+        --paper-toggle-button-unchecked-bar-color: var(--simpla-grey-700);
+      }
+    </style>
+
+    <div class="wrapper">
+      <span class="label">Toggle edit mode</span>
+
+      <paper-toggle-button
+        class="toggle"
+        active="{{editable}}"
+        noink>
+      </paper-toggle-button>
+    </div>
+
+  </template>
+
+  <script>
+    import Simpla from 'simpla';
+
+    // Setup Simpla
+    Simpla.init('demo');
+    window.Simpla = Simpla;
+
+    Polymer({
+      is: 'simpla-demo-helper',
+
+      properties: {
+
+        editable: {
+          type: Boolean,
+          observer: '_updateEditable'
+        }
+
+      },
+
+      _updateEditable(editable) {
+        Simpla.editable(editable);
+      }
+    });
+  </script>
+</dom-module>
