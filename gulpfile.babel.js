@@ -20,6 +20,7 @@ const minify = require('gulp-htmlmin');
 // JS
 const eslint = require('gulp-eslint');
 const rollup = require('gulp-rollup-file');
+const rollupif = require('rollup-plugin-conditional');
 const resolve = require('rollup-plugin-node-resolve');
 const commonJs = require('rollup-plugin-commonjs');
 const babel = require('rollup-plugin-babel');
@@ -27,7 +28,6 @@ const json = require('rollup-plugin-json');
 const replace = require('rollup-plugin-replace');
 const uglify = require('rollup-plugin-uglify');
 const uglifyHarmony = require('uglify-js-harmony').minify;
-
 
 // CSS
 const postcss = require('gulp-postcss');
@@ -48,7 +48,9 @@ const bs = browserSync.create(),
             babel({
               exclude: 'node_modules/**/*'
             }),
-            uglify({}, uglifyHarmony)
+            rollupif(!argv.debug, [
+              uglify({}, uglifyHarmony )
+            ])
           ]
         },
         postcss: [
