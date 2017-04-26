@@ -35,4 +35,4 @@ MIT © Simpla
 [bowerdeps-url]: https://gemnasium.com/bower/simpla-demo-helper
 [size-badge]: https://badges.herokuapp.com/size/github/SimplaElements/simpla-demo-helper/master/simpla-demo-helper.html?gzip=true
 [webcomponents-badge]: https://img.shields.io/badge/webcomponents.org-published-blue.svg
-[webcomponents-url]: https://www.webcomponents.org/element/SimplaElements/simpla-demo-helper.svg
+[webcomponents-url]: https://www.webcomponents.org/element/SimplaElements/simpla-demo-helper
