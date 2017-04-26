@@ -25,6 +25,9 @@ const commonJs = require('rollup-plugin-commonjs');
 const babel = require('rollup-plugin-babel');
 const json = require('rollup-plugin-json');
 const replace = require('rollup-plugin-replace');
+const uglify = require('rollup-plugin-uglify');
+const uglifyHarmony = require('uglify-js-harmony').minify;
+
 
 // CSS
 const postcss = require('gulp-postcss');
@@ -37,16 +40,16 @@ const bs = browserSync.create(),
         rollup: {
           plugins: [
             resolve({ main: true, browser: true }),
+            replace({
+              'process.env.NODE_ENV': argv.debug ? '"development"' : '"production"'
+            }),
             commonJs(),
             json(),
             babel({
               exclude: 'node_modules/**/*'
             }),
-            replace({
-              'process.env.NODE_ENV': argv.debug ? '"development"' : '"production"'
-            })
-          ],
-          format: 'iife'
+            uglify({}, uglifyHarmony)
+          ]
         },
         postcss: [
           autoprefixer()
@@ -64,7 +67,7 @@ const bs = browserSync.create(),
           keepClosingSlash: true,
           customAttrAssign: [/\$=/],
           minifyCSS: true,
-          minifyJS: true
+          minifyJS: false
         },
         browserSync: {
           server: {
